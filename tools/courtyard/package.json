@@ -1,0 +1,17 @@
+{
+  "name": "courtyard",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fontsource/alegreya": "^5.3.0",
+    "@fontsource/marcellus": "^5.3.0",
+    "@fontsource/ramabhadra": "^5.3.0"
+  }
+}

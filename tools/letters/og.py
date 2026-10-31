@@ -1,0 +1,31 @@
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+I='/home/claude/site5/letters/img/'
+T='ttf/'
+desk=Image.open(I+'desk.webp').convert('RGBA')
+og=desk.crop((300,250,300+1800,250+945)).resize((1200,630),Image.LANCZOS)
+def shadow(im,off=(0,14),blur=16,op=150):
+    a=im.split()[3].point(lambda v:v*op//255)
+    sh=Image.new('RGBA',im.size,(0,0,0,0));sh.putalpha(a)
+    return sh.filter(ImageFilter.GaussianBlur(blur))
+def place(base,im,xy,rot=0):
+    im=im.rotate(rot,resample=Image.BICUBIC,expand=True)
+    sh=shadow(im);base.alpha_composite(sh,(xy[0]+4,xy[1]+14));base.alpha_composite(im,xy)
+jas=Image.open(I+'jasmine.webp').convert('RGBA');jas.thumbnail((360,460))
+place(og,jas,(150,-250),78)
+env=Image.new('RGBA',(1000,680),(0,0,0,0))
+for f in ['env-interior.webp','env-pocket.webp']: env.alpha_composite(Image.open(I+f).convert('RGBA'))
+env.alpha_composite(Image.open(I+'env-flap.webp').convert('RGBA'),(0,0))
+seal=Image.open(I+'seal.webp').convert('RGBA').resize((250,250),Image.LANCZOS)
+env.alpha_composite(seal,(375,408-125+0))
+d=ImageDraw.Draw(env);d.text((900,560),'with love, A & P',font=ImageFont.truetype(T+'saint.ttf',58),fill=(34,48,90,255),anchor='rm')
+env=env.resize((600,408),Image.LANCZOS)
+place(og,env,(560,120),-4)
+st=Image.open(I+'stamp-delta.webp').convert('RGBA').resize((120,144),Image.LANCZOS)
+place(og,st,(1065,40),12)
+d=ImageDraw.Draw(og)
+d.text((70,250),'LETTERS ACROSS CONTINENTS',font=ImageFont.truetype(T+'courierb.ttf',22),fill=(240,217,176,255))
+d.text((64,282),'Akshay & Priya',font=ImageFont.truetype(T+'saint.ttf',96),fill=(246,234,212,255))
+d.text((70,410),'Saturday, 21 November 2026',font=ImageFont.truetype(T+'caslon.ttf',30),fill=(246,234,212,255))
+d.text((70,452),'Priyanka Convention, Nallajerla',font=ImageFont.truetype(T+'casloni.ttf',26),fill=(217,204,179,255))
+og.convert('RGB').save('/home/claude/site5/letters/og.jpg',quality=84,optimize=True,progressive=True)
+import os;print(os.path.getsize('/home/claude/site5/letters/og.jpg')//1024,'KB')
