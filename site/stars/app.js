@@ -278,7 +278,7 @@
       'BEGIN:VEVENT',
       'UID:akshay-priya-wedding-20261121@nine-fifty-five',
       'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''),
-      'DTSTART:20261121T143000Z', 'DTEND:20261121T173000Z',
+      'DTSTART:20261121T143000Z', 'DTEND:20261121T143000Z',
       'SUMMARY:Wedding of Akshay & Priya',
       'DESCRIPTION:Wedding dinner 8:00 PM IST · Muhurtham 9:55 PM IST',
       'LOCATION:Priyanka Convention\\, Nallajerla\\, Andhra Pradesh\\, India',
@@ -291,92 +291,66 @@
   });
   const msg = $('#shareMsg');
   $('#share').addEventListener('click', async () => {
-    const data = { title: 'Akshay & Priya · 21 November 2026', text: 'Wedding of Akshay & Priya · Saturday, 21 November 2026 · Priyanka Convention, Nallajerla', url: location.href.split('#')[0] };
+    const data = { title: 'Akshay & Priya · 21 November 2026', text: 'Wedding of Akshay & Priya · Saturday, 21 November 2026 · Priyanka Convention, Nallajerla', url: 'https://akshaykondapalli.github.io/akshay-priya-wedding-five-concepts/stars/'};
     if (navigator.share) { try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
     try { await navigator.clipboard.writeText(data.url); msg.textContent = 'Link copied.'; }
     catch (_) { msg.textContent = 'Copy this link: ' + data.url; }
   });
 
-  /* ------------------------------------------------------------ music (original, synthesised live) */
-  const btn = $('#music');
-  let A = null, playing = false;
-  // Mohanam (S R2 G3 P D2), Sa = D3. Ratios in just intonation.
-  const SA = 146.83, SCALE = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3];
-  function buildAudio() {
-    const ac = new (window.AudioContext || window.webkitAudioContext)();
-    const master = ac.createGain(); master.gain.value = 0;
-    const comp = ac.createDynamicsCompressor(); comp.threshold.value = -24; comp.ratio.value = 3;
-    // soft hall from a generated impulse
-    const conv = ac.createConvolver();
-    const len = ac.sampleRate * 3.2, ir = ac.createBuffer(2, len, ac.sampleRate);
-    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
-    conv.buffer = ir;
-    const wet = ac.createGain(); wet.gain.value = 0.42;
-    const dry = ac.createGain(); dry.gain.value = 0.7;
-    const bus = ac.createGain();
-    bus.connect(dry); bus.connect(conv); conv.connect(wet);
-    dry.connect(comp); wet.connect(comp); comp.connect(master); master.connect(ac.destination);
-    return { ac, master, bus, timers: [] };
+  /* ------------------------------------------------------------ music: the couple's selected recording */
+  // One persistent <audio> element for the whole invitation: off until the guest taps, pause/resume, loop, 40% volume.
+  const audio = $('#bgm'), mbtn = $('#musicBtn');
+  audio.loop = true; audio.volume = 0.4;
+  function setMusicUI(playing) {
+    mbtn.setAttribute('aria-pressed', String(playing));
+    mbtn.setAttribute('aria-label', playing ? 'Pause music' : 'Play music');
+    $('.music-label', mbtn).textContent = playing ? 'Pause Music' : 'Play Music';
   }
-  function pluck(freq, when, dur, vol) {          // tanpura-like string: buzzy saw through a closing low-pass
-    const { ac, bus } = A;
-    const o = ac.createOscillator(), o2 = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
-    o.type = 'sawtooth'; o2.type = 'sawtooth'; o.frequency.value = freq; o2.frequency.value = freq * 1.0025;
-    f.type = 'lowpass'; f.Q.value = 3.2;
-    f.frequency.setValueAtTime(freq * 9, when); f.frequency.exponentialRampToValueAtTime(freq * 2.2, when + dur);
-    g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(vol, when + 0.03);
-    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-    o.connect(f); o2.connect(f); f.connect(g); g.connect(bus);
-    o.start(when); o2.start(when); o.stop(when + dur + 0.05); o2.stop(when + dur + 0.05);
-  }
-  function bell(freq, when, vol) {                 // soft bell: two inharmonic partials with long decay
-    const { ac, bus } = A;
-    [[1, 1, 4.2], [2.76, 0.28, 1.6], [5.4, 0.08, 0.7]].forEach(([r, a, d]) => {
-      const o = ac.createOscillator(), g = ac.createGain();
-      o.type = 'sine'; o.frequency.value = freq * r;
-      g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(vol * a, when + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, when + d);
-      o.connect(g); g.connect(bus); o.start(when); o.stop(when + d + 0.05);
+  mbtn.addEventListener('click', () => {
+    if (audio.paused) { audio.volume = 0.4; const pr = audio.play(); if (pr && pr.catch) pr.catch(() => setMusicUI(!audio.paused)); }
+    else audio.pause();
+  });
+  audio.addEventListener('play', () => setMusicUI(true));
+  audio.addEventListener('pause', () => setMusicUI(false));
+  audio.addEventListener('error', () => setMusicUI(false));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setMusicUI(!audio.paused); });
+  setMusicUI(false);
+
+  /* music button placement: bottom-right; becomes a compact circle, then lifts, so it never covers
+     a control, the dial, the countdown or wedding text */
+  function protectedRects() {
+    const vh = innerHeight, zoneTop = vh - 260, rects = [];
+    const push = r => { if (r.width > 0 && r.height > 0 && r.bottom > zoneTop && r.top < vh) rects.push(r); };
+    document.querySelectorAll('main a, main button, .bar a, .bar button, #countdown, .dial, svg[role="img"]:not([aria-labelledby="cst-t"])').forEach(el => {
+      if (el.closest('dialog:not([open])')) return; const cs = getComputedStyle(el);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity < .1) return; push(el.getBoundingClientRect());
     });
-  }
-  let nextDrone = 0, nextBell = 0, deg = 0;
-  function schedule() {
-    if (!playing) return;
-    const now = A.ac.currentTime;
-    while (nextDrone < now + 1.2) {               // Pa · Sa · Sa · low Sa, one cycle every ~4.8 s
-      const cyc = [SA * 3 / 4, SA, SA, SA / 2];
-      cyc.forEach((f, i) => pluck(f, nextDrone + i * 1.2, 4.6, i === 3 ? 0.05 : 0.035));
-      nextDrone += 4.8;
+    const walker = document.createTreeWalker(document.querySelector('main') || document.body, NodeFilter.SHOW_TEXT);
+    const rg = document.createRange();
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (!n.textContent.trim()) continue; const el = n.parentElement; if (!el) continue;
+      const er = el.getBoundingClientRect(); if (er.bottom < zoneTop || er.top > vh) continue;
+      const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || +cs.opacity < .1) continue;
+      rg.selectNodeContents(n); for (const r of rg.getClientRects()) push(r);
     }
-    while (nextBell < now + 1.2) {                // an original, slowly wandering phrase on Mohanam
-      const step = [-1, 1, 1, -1, 2, -2, 0][Math.floor(Math.random() * 7)];
-      deg = clamp(deg + step, 0, 9);
-      const oct = deg >= 5 ? 2 : 1;
-      bell(SA * 2 * SCALE[deg % 5] * oct, nextBell, 0.06);
-      nextBell += [1.6, 2.4, 2.4, 3.2, 4.8][Math.floor(Math.random() * 5)];
-    }
-    A.timers.push(setTimeout(schedule, 400));
+    return rects;
   }
-  async function setMusic(on) {
-    if (on) {
-      if (!A) A = buildAudio();
-      if (A.ac.state === 'suspended') await A.ac.resume();
-      playing = true;
-      nextDrone = nextBell = A.ac.currentTime + 0.1;
-      A.master.gain.cancelScheduledValues(A.ac.currentTime);
-      A.master.gain.setTargetAtTime(0.11, A.ac.currentTime, 1.2);      // ~ -19 dBFS
-      schedule();
-    } else if (A) {
-      playing = false;
-      A.timers.forEach(clearTimeout); A.timers = [];
-      A.master.gain.setTargetAtTime(0, A.ac.currentTime, 0.4);
-      setTimeout(() => { if (!playing && A) A.ac.suspend(); }, 1600);
-    }
-    btn.setAttribute('aria-pressed', String(on));
-    $('.lbl', btn).textContent = on ? 'Pause music' : 'Play music';
+  let fabRaf = 0;
+  function placeFab() {
+    fabRaf = 0; const f = mbtn, vh = innerHeight, obs = protectedRects();
+    const hit = () => { const r = f.getBoundingClientRect(), pad = 6; return obs.some(o => r.left < o.right + pad && r.right > o.left - pad && r.top < o.bottom + pad && r.bottom > o.top - pad); };
+    const set = (compact, bottom) => { f.classList.toggle('compact', compact); f.style.bottom = `calc(${bottom}px + env(safe-area-inset-bottom, 0px))`; };
+    set(false, 12); if (!hit()) return;
+    set(true, 12); if (!hit()) return;
+    const fr = f.getBoundingClientRect();
+    const col = obs.filter(o => o.right > fr.left - 6 && o.left < fr.right + 6).sort((a, b) => b.top - a.top);
+    let bottom = 12;
+    for (const o of col) { const r = f.getBoundingClientRect(); if (r.top < o.bottom + 6 && r.bottom > o.top - 6) { bottom = vh - o.top + 8; set(true, bottom); } }
+    if (bottom > vh * 0.45) set(true, 12);     // never float into the middle of the screen
   }
-  btn.addEventListener('click', () => setMusic(!playing).catch(() => {}));
-  document.addEventListener('visibilitychange', () => { if (document.hidden && playing) setMusic(false); });
+  const queueFab = () => { if (!fabRaf) fabRaf = requestAnimationFrame(placeFab); };
+  addEventListener('scroll', queueFab, { passive: true }); addEventListener('resize', queueFab);
+  document.fonts && document.fonts.ready.then(queueFab); queueFab();
 
   /* ------------------------------------------------------------ capture hook + boot */
   window.atlasReveal = () => { arch && arch.classList.add('in'); layout(); onScroll(); requestDraw(); };
