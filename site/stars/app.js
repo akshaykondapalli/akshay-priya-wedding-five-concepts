@@ -350,6 +350,8 @@
   }
   const queueFab = () => { if (!fabRaf) fabRaf = requestAnimationFrame(placeFab); };
   addEventListener('scroll', queueFab, { passive: true }); addEventListener('resize', queueFab);
+  document.addEventListener('transitionend', queueFab, true); document.addEventListener('animationend', queueFab, true);
+  document.getElementById('menu') && document.getElementById('menu').addEventListener('close', queueFab);
   document.fonts && document.fonts.ready.then(queueFab); queueFab();
 
   /* ------------------------------------------------------------ capture hook + boot */
